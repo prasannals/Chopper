@@ -126,6 +126,7 @@ widget state = frameLayout
                     id_ "outView"
                     , height "200"
                     , width "400"
+                    , textSize "40"
                     , text (genGameMessage state.score state.gameLife)
                     , margin (posToMarginStr (gameAreaWidth + 100) 200)
                   ]
