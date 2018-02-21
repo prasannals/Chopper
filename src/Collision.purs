@@ -17,4 +17,7 @@ isOverlapping :: Rect -> Rect -> Boolean
 isOverlapping r0 r1 = ((valueInRange r0.x r1.x (r1.x + r1.w)) || (valueInRange r1.x r0.x (r0.x + r0.w))) && ((valueInRange r0.y r1.y (r1.y + r1.h)) || (valueInRange r1.y r0.y (r0.y + r0.h)))
 
 anyOverlapping :: Rect -> (Array Rect) -> Boolean
-anyOverlapping r0 arr = foldl (\acc v -> if v then true else false) false (map (isOverlapping r0) arr)
+anyOverlapping r0 arr = foldl (\acc v -> (acc || v)) false (map (isOverlapping r0) arr)
+
+showRect :: Rect -> String
+showRect {x, y, w, h} = (show x) <> ", " <> (show y) <> ", " <> (show w) <> ", " <> (show h)

@@ -1,5 +1,6 @@
 module Main where
 
+import Collision
 import Data.Array
 import Data.String
 import Halogen.VDom.Types
@@ -9,22 +10,22 @@ import UI.Elements
 import UI.Events
 import UI.Properties
 
-import Neon.Operator ((%))
-import Data.Array (length)
-import Control.Monad.Eff.Random (randomInt)
+import Control.Monad.Eff.Console (log)
 import Control.Monad.Eff.Exception (stack)
+import Control.Monad.Eff.Random (randomInt)
 import Control.Plus ((<|>))
 import DOM.HTML.Event.ErrorEvent (lineNo)
 import DOM.HTML.History (back)
 import Data.Array (group)
+import Data.Array (length)
 import FRP as F
 import FRP.Behavior (behavior)
 import FRP.Event as E
 import FRP.Event.Time (animationFrame)
 import Halogen.VDom.Types (graft)
+import Neon.Operator ((%))
 import UI.Core (MEvent, AttrValue(..), Attr(..), Prop)
 import UI.Util as U
-import Collision
 
 foreign import click :: MEvent
 foreign import change :: MEvent
@@ -58,9 +59,14 @@ gameAreaHeight = 800
 gameAreaWidth :: Int
 gameAreaWidth = 1200
 
-type Pos2d = {x :: Int , y :: Int}
-type Obstacle = {pos :: Pos2d, mWidth :: Int, mHeight :: Int, id :: Int, background :: String}
-type MyState = {background :: String, heliPos :: Pos2d, obstacles :: Array Obstacle, numObstacles :: Int}
+heliWidth :: Int
+heliWidth = 150
+
+heliHeight :: Int
+heliHeight = 100
+
+type Obstacle = {rect :: Rect, id :: Int, background :: String}
+type MyState = {background :: String, heliRect :: Rect, obstacles :: Array Obstacle, numObstacles :: Int, logText :: String}
 
 
 
@@ -88,10 +94,10 @@ widget state = linearLayout
                    , height "100"
                    , width "150"
                    , imageUrl "heli"
-                   , margin (posToMarginStr state.heliPos.x state.heliPos.y)
+                   , margin (posToMarginStr state.heliRect.x state.heliRect.y)
                   ]
-                ]) <> (drawObstacle <$> state.obstacles)  )
-
+                ]) <> (drawObstacle <$> state.obstacles)
+                )
               ]
 
 posToMarginStr :: Int -> Int -> String
@@ -101,45 +107,51 @@ posToMarginStr x y = (show x) <> ", " <> (show y) <> " , 0, 0"
 drawObstacle :: forall a. Obstacle -> VDom Attr a
 drawObstacle obstacle = frameLayout [
     id_ (show $ obstacle.id),
-    height (show $ obstacle.mHeight),
-    width (show $ obstacle.mWidth),
+    height (show $ obstacle.rect.h),
+    width (show $ obstacle.rect.w),
     background obstacle.background,
-    margin (posToMarginStr obstacle.pos.x obstacle.pos.y)
+    margin (posToMarginStr obstacle.rect.x obstacle.rect.y)
   ][]
 
 getObstacles :: Array Obstacle
-getObstacles = [{pos : {x : 100, y : 0 }, mWidth : 50, mHeight : 400, id : 0, background : "#000000"},
-                {pos : {x : 250, y : 0 }, mWidth : 50, mHeight : 400, id : 1, background : "#000000"},
-                {pos : {x : 550, y : 0 }, mWidth : 50, mHeight : 400, id : 2, background : "#000000"},
-                {pos : {x : 750, y : 0 }, mWidth : 50, mHeight : 400, id : 3, background : "#ff0000"}]
+getObstacles = [{rect : {x : 100, y : 0, w: 50, h :400}, id : 0, background : "#000000"},
+                {rect : {x : 250, y : 0, w : 50, h : 400}, id : 1, background : "#000000"},
+                {rect : {x : 550, y : 0, w : 50, h : 400 }, id : 2, background : "#000000"},
+                {rect : {x : 750, y : 0, w : 50, h : 400 }, id : 3, background : "#ff0000"}]
 
 
 updateObstaclePos :: Int -> Int -> Obstacle -> Obstacle
-updateObstaclePos dx dy {pos : {x, y}, mWidth, mHeight, id, background }= {pos : {x: (x + dx), y : (y + dy)}, mWidth, mHeight, id, background }
+updateObstaclePos dx dy {rect : {x, y, w, h}, id, background }= {rect : {x: (x + dx), y : (y + dy), w, h}, id, background }
 
 
 eval x = do
       (state::MyState) <- U.getState
-      U.updateState "heliPos" {x : state.heliPos.x + clickIncX, y : state.heliPos.y + clickIncY}
+      U.updateState "heliRect" {x : state.heliRect.x + clickIncX, y : state.heliRect.y + clickIncY, w : state.heliRect.w, h : state.heliRect.h}
 
 
-checkObstacleBounds = filter (\{pos : {x, y}, mWidth, mHeight, id, background } -> if (x >= 0) then true else false )
+checkObstacleBounds = filter (\{rect : {x, y, w, h}, id, background } -> if (x >= 0) then true else false )
 
 
 addObstacle maxLen arr = do
   i <- randomInt 1 (gameAreaHeight/2)
   if (i % 2) == 0
     then
-      if ((length arr) < maxLen) then pure (arr <> [{pos : {x : (gameAreaWidth - 50), y : 0 }, mWidth : 50, mHeight : i, id : (length arr) , background : "#009900"}]) else pure arr
+      if ((length arr) < maxLen) then pure (arr <> [{rect : {x : (gameAreaWidth - 50), y : 0 , w: 50, h : i}, id : (length arr) , background : "#009900"}]) else pure arr
     else
-      if ((length arr) < maxLen) then pure (arr <> [{pos : {x : (gameAreaWidth - 50), y : (gameAreaHeight - i) }, mWidth : 50, mHeight : i, id : (length arr) , background : "#009900"}]) else pure arr
+      if ((length arr) < maxLen) then pure (arr <> [{rect : {x : (gameAreaWidth - 50), y : (gameAreaHeight - i), w: 50, h : i }, id : (length arr) , background : "#009900"}]) else pure arr
 
 
 frameUpdate x = do
   (state::MyState) <- U.getState
-  _ <- U.updateState "heliPos" {x : state.heliPos.x + fallIncX, y : state.heliPos.y + fallIncY}
+  _ <- U.updateState "heliRect" {x : (state.heliRect.x + fallIncX), y : (state.heliRect.y + fallIncY), w: state.heliRect.w, h: state.heliRect.h}
   newObs <- (addObstacle numObstaclesOnScreen state.obstacles)
-  U.updateState "obstacles" $ checkObstacleBounds $ (updateObstaclePos (-2) 0)  <$> newObs
+  _ <- U.updateState "obstacles" $ checkObstacleBounds $ (updateObstaclePos (-2) 0)  <$> newObs
+  log $ foldl (\a s -> a <> "\n" <> s) "" ([showRect state.heliRect] <> (map showRect (map (\o -> o.rect) state.obstacles)))
+  if (anyOverlapping state.heliRect (map (\o -> o.rect) state.obstacles))
+    then U.updateState "logText" (state.logText <> "\nCollision!")
+    else U.updateState "logText" (state.logText <> "Nope!")
+
+
 
 listen = do
   sigSquare <- U.signal "gameArea" ""
@@ -159,7 +171,9 @@ main = do
   _ <- U.updateState "background" "#888888"
   _ <- U.updateState "numObstacles" 0
   _ <- U.updateState "obstacles" getObstacles
-  state <- U.updateState "heliPos" {x : heliInitX, y :heliInitY}
+  _ <- U.updateState "heliRect" {x : heliInitX, y :heliInitY, w : heliWidth, h : heliHeight}
+  state <- U.updateState "logText" ""
+
 
   ---  global  key value pair in your "state" (which is also global)
   ---- Render Widget ---
