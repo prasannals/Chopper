@@ -53,6 +53,15 @@ fallIncX = 0
 fallIncY :: Int
 fallIncY = 3
 
+htmlBackground :: String
+htmlBackground = "#00796B"
+
+gameAreaBackground :: String
+gameAreaBackground = "#009688"
+
+obstacleColor :: String
+obstacleColor = "#4DB6AC"
+
 gameAreaHeight :: Int
 gameAreaHeight = 800
 
@@ -69,20 +78,19 @@ heliMargin :: Int
 heliMargin = 30
 
 type Obstacle = {rect :: Rect, id :: Int, background :: String}
-type MyState = {background :: String, heliRect :: Rect, obstacles :: Array Obstacle, numObstacles :: Int, logText :: String, gameLife :: Int}
+type MyState = {background :: String, heliRect :: Rect, obstacles :: Array Obstacle, numObstacles :: Int, logText :: String, gameLife :: Int, score :: Int}
 
 
 
 widget :: forall a . MyState  -> VDom Attr a
-widget state = linearLayout
+widget state = frameLayout
               [ id_ "root"
               , height "match_parent"
               , width "match_parent"
-              , background "#76b852"
+              , background htmlBackground
               , gravity "top"
-              , orientation "vertical"
               ]
-              [
+              ([
                 frameLayout
                 [
                   id_ "gameArea"
@@ -101,7 +109,19 @@ widget state = linearLayout
                   ]
                 ]) <> (drawObstacle <$> state.obstacles)
                 )
-              ]
+              ] <> [
+                  textView
+                  [
+                    id_ "outView"
+                    , height "200"
+                    , width "400"
+                    , text (genGameMessage state.score state.gameLife)
+                    , margin (posToMarginStr (gameAreaWidth + 100) 200)
+                  ]
+                ])
+
+genGameMessage :: Int -> Int -> String
+genGameMessage score life = "Score : " <> (show score) <> "\n" <> (if life > 0 then "Game on!" else "Game Over")
 
 posToMarginStr :: Int -> Int -> String
 posToMarginStr x y = (show x) <> ", " <> (show y) <> " , 0, 0"
@@ -116,11 +136,12 @@ drawObstacle obstacle = frameLayout [
     margin (posToMarginStr obstacle.rect.x obstacle.rect.y)
   ][]
 
+
 getObstacles :: Array Obstacle
-getObstacles = [{rect : {x : 400, y : 0, w: 50, h :300}, id : 0, background : "#000000"},
-                {rect : {x : 550, y : 0, w : 50, h : 400}, id : 1, background : "#000000"},
-                {rect : {x : 650, y : 0, w : 50, h : 200 }, id : 2, background : "#000000"},
-                {rect : {x : 850, y : 0, w : 50, h : 400 }, id : 3, background : "#ff0000"}]
+getObstacles = [{rect : {x : 400, y : 0, w: 50, h :300}, id : 0, background : obstacleColor},
+                {rect : {x : 550, y : 0, w : 50, h : 400}, id : 1, background : obstacleColor},
+                {rect : {x : 650, y : 0, w : 50, h : 200 }, id : 2, background : obstacleColor},
+                {rect : {x : 850, y : 0, w : 50, h : 400 }, id : 3, background : obstacleColor}]
 
 
 updateObstaclePos :: Int -> Int -> Obstacle -> Obstacle
@@ -129,7 +150,9 @@ updateObstaclePos dx dy {rect : {x, y, w, h}, id, background }= {rect : {x: (x +
 
 eval x = do
       (state::MyState) <- U.getState
-      U.updateState "heliRect" {x : state.heliRect.x + clickIncX, y : state.heliRect.y + clickIncY, w : state.heliRect.w, h : state.heliRect.h}
+      if state.gameLife > 0
+        then U.updateState "heliRect" {x : state.heliRect.x + clickIncX, y : state.heliRect.y + clickIncY, w : state.heliRect.w, h : state.heliRect.h}
+        else pure state
 
 
 checkObstacleBounds = filter (\{rect : {x, y, w, h}, id, background } -> if (x >= 0) then true else false )
@@ -139,9 +162,9 @@ addObstacle maxLen arr = do
   i <- randomInt 1 (gameAreaHeight/2)
   if (i % 2) == 0
     then
-      if ((length arr) < maxLen) then pure (arr <> [{rect : {x : (gameAreaWidth - 50), y : 0 , w: 50, h : i}, id : (length arr) , background : "#009900"}]) else pure arr
+      if ((length arr) < maxLen) then pure (arr <> [{rect : {x : (gameAreaWidth - 50), y : 0 , w: 50, h : i}, id : (length arr) , background : obstacleColor}]) else pure arr
     else
-      if ((length arr) < maxLen) then pure (arr <> [{rect : {x : (gameAreaWidth - 50), y : (gameAreaHeight - i), w: 50, h : i }, id : (length arr) , background : "#009900"}]) else pure arr
+      if ((length arr) < maxLen) then pure (arr <> [{rect : {x : (gameAreaWidth - 50), y : (gameAreaHeight - i), w: 50, h : i }, id : (length arr) , background : obstacleColor}]) else pure arr
 
 
 frameUpdate x = do
@@ -150,9 +173,10 @@ frameUpdate x = do
     then do
       _ <- U.updateState "heliRect" {x : (state.heliRect.x + fallIncX), y : (state.heliRect.y + fallIncY), w: state.heliRect.w, h: state.heliRect.h}
       newObs <- (addObstacle numObstaclesOnScreen state.obstacles)
+      _ <- U.updateState "score" (state.score + ((length (filter (\{rect : {x, y, w, h}, id, background } -> if (x <= 0) then true else false ) state.obstacles)) * 10) )
       (u::MyState) <- U.updateState "obstacles" $ checkObstacleBounds $ (updateObstaclePos (-2) 0)  <$> newObs
       log $ foldl (\a s -> a <> "\n" <> s) "" ([showRect state.heliRect] <> (map showRect (map (\o -> o.rect) state.obstacles)))
-      if (anyOverlapping (withMargin (state.heliRect) heliMargin ) (map (\o -> o.rect) state.obstacles)) || (u.heliRect.y > (gameAreaHeight - u.heliRect.h))
+      if (anyOverlapping (withMargin (state.heliRect) heliMargin ) (map (\o -> o.rect) state.obstacles)) || (u.heliRect.y > (gameAreaHeight - u.heliRect.h)) || (u.heliRect.y < 0)
         then U.updateState "gameLife" (state.gameLife - 1)
         else pure state
     else pure state
@@ -176,10 +200,11 @@ main = do
   --- Init State {} empty record--
   U.initializeState
   --- Update State ----
-  _ <- U.updateState "background" "#888888"
+  _ <- U.updateState "background" gameAreaBackground
   _ <- U.updateState "numObstacles" 0
   _ <- U.updateState "gameLife" 1
   _ <- U.updateState "obstacles" getObstacles
+  _ <- U.updateState "score" 0
   _ <- U.updateState "heliRect" {x : heliInitX, y :heliInitY, w : heliWidth, h : heliHeight}
   state <- U.updateState "logText" ""
 
