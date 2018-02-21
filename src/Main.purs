@@ -65,8 +65,11 @@ heliWidth = 150
 heliHeight :: Int
 heliHeight = 100
 
+heliMargin :: Int
+heliMargin = 30
+
 type Obstacle = {rect :: Rect, id :: Int, background :: String}
-type MyState = {background :: String, heliRect :: Rect, obstacles :: Array Obstacle, numObstacles :: Int, logText :: String}
+type MyState = {background :: String, heliRect :: Rect, obstacles :: Array Obstacle, numObstacles :: Int, logText :: String, gameLife :: Int}
 
 
 
@@ -76,7 +79,7 @@ widget state = linearLayout
               , height "match_parent"
               , width "match_parent"
               , background "#76b852"
-              , gravity "center"
+              , gravity "top"
               , orientation "vertical"
               ]
               [
@@ -114,10 +117,10 @@ drawObstacle obstacle = frameLayout [
   ][]
 
 getObstacles :: Array Obstacle
-getObstacles = [{rect : {x : 100, y : 0, w: 50, h :400}, id : 0, background : "#000000"},
-                {rect : {x : 250, y : 0, w : 50, h : 400}, id : 1, background : "#000000"},
-                {rect : {x : 550, y : 0, w : 50, h : 400 }, id : 2, background : "#000000"},
-                {rect : {x : 750, y : 0, w : 50, h : 400 }, id : 3, background : "#ff0000"}]
+getObstacles = [{rect : {x : 400, y : 0, w: 50, h :300}, id : 0, background : "#000000"},
+                {rect : {x : 550, y : 0, w : 50, h : 400}, id : 1, background : "#000000"},
+                {rect : {x : 650, y : 0, w : 50, h : 200 }, id : 2, background : "#000000"},
+                {rect : {x : 850, y : 0, w : 50, h : 400 }, id : 3, background : "#ff0000"}]
 
 
 updateObstaclePos :: Int -> Int -> Obstacle -> Obstacle
@@ -143,14 +146,19 @@ addObstacle maxLen arr = do
 
 frameUpdate x = do
   (state::MyState) <- U.getState
-  _ <- U.updateState "heliRect" {x : (state.heliRect.x + fallIncX), y : (state.heliRect.y + fallIncY), w: state.heliRect.w, h: state.heliRect.h}
-  newObs <- (addObstacle numObstaclesOnScreen state.obstacles)
-  _ <- U.updateState "obstacles" $ checkObstacleBounds $ (updateObstaclePos (-2) 0)  <$> newObs
-  log $ foldl (\a s -> a <> "\n" <> s) "" ([showRect state.heliRect] <> (map showRect (map (\o -> o.rect) state.obstacles)))
-  if (anyOverlapping state.heliRect (map (\o -> o.rect) state.obstacles))
-    then U.updateState "logText" (state.logText <> "\nCollision!")
-    else U.updateState "logText" (state.logText <> "Nope!")
+  if state.gameLife > 0
+    then do
+      _ <- U.updateState "heliRect" {x : (state.heliRect.x + fallIncX), y : (state.heliRect.y + fallIncY), w: state.heliRect.w, h: state.heliRect.h}
+      newObs <- (addObstacle numObstaclesOnScreen state.obstacles)
+      (u::MyState) <- U.updateState "obstacles" $ checkObstacleBounds $ (updateObstaclePos (-2) 0)  <$> newObs
+      log $ foldl (\a s -> a <> "\n" <> s) "" ([showRect state.heliRect] <> (map showRect (map (\o -> o.rect) state.obstacles)))
+      if (anyOverlapping (withMargin (state.heliRect) heliMargin ) (map (\o -> o.rect) state.obstacles)) || (u.heliRect.y > (gameAreaHeight - u.heliRect.h))
+        then U.updateState "gameLife" (state.gameLife - 1)
+        else pure state
+    else pure state
 
+withMargin :: Rect -> Int -> Rect
+withMargin {x,y,w,h} margin = {x : (x + margin),y : y + margin,w : w - margin, h:  h - margin}
 
 
 listen = do
@@ -170,6 +178,7 @@ main = do
   --- Update State ----
   _ <- U.updateState "background" "#888888"
   _ <- U.updateState "numObstacles" 0
+  _ <- U.updateState "gameLife" 1
   _ <- U.updateState "obstacles" getObstacles
   _ <- U.updateState "heliRect" {x : heliInitX, y :heliInitY, w : heliWidth, h : heliHeight}
   state <- U.updateState "logText" ""
