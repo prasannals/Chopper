@@ -51,7 +51,7 @@ fallIncX :: Int
 fallIncX = 0
 
 fallIncY :: Int
-fallIncY = 3
+fallIncY = 4
 
 -- GREEN THEME
 -- htmlBackground :: String
@@ -86,7 +86,7 @@ heliHeight :: Int
 heliHeight = 100
 
 heliMargin :: Int
-heliMargin = 30
+heliMargin = 40
 
 type Obstacle = {rect :: Rect, id :: Int, background :: String}
 type MyState = {background :: String, heliRect :: Rect, obstacles :: Array Obstacle, numObstacles :: Int, logText :: String, gameLife :: Int, score :: Int}
@@ -151,8 +151,8 @@ drawObstacle obstacle = frameLayout [
 getObstacles :: Array Obstacle
 getObstacles = [{rect : {x : 400, y : 0, w: 50, h :300}, id : 0, background : obstacleColor},
                 {rect : {x : 550, y : 0, w : 50, h : 400}, id : 1, background : obstacleColor},
-                {rect : {x : 650, y : 0, w : 50, h : 200 }, id : 2, background : obstacleColor},
-                {rect : {x : 850, y : 0, w : 50, h : 400 }, id : 3, background : obstacleColor}]
+                {rect : {x : 680, y : 0, w : 50, h : 200 }, id : 2, background : obstacleColor},
+                {rect : {x : 900, y : 0, w : 50, h : 400 }, id : 3, background : obstacleColor}]
 
 
 updateObstaclePos :: Int -> Int -> Obstacle -> Obstacle
