@@ -53,14 +53,25 @@ fallIncX = 0
 fallIncY :: Int
 fallIncY = 3
 
+-- GREEN THEME
+-- htmlBackground :: String
+-- htmlBackground = "#00796B"
+--
+-- gameAreaBackground :: String
+-- gameAreaBackground = "#B2DFDB"
+--
+-- obstacleColor :: String
+-- obstacleColor = "#009688"
+
+-- BROWN THEME
 htmlBackground :: String
-htmlBackground = "#00796B"
+htmlBackground = "#9E9E9E"
 
 gameAreaBackground :: String
-gameAreaBackground = "#009688"
+gameAreaBackground = "#ECEFF1"
 
 obstacleColor :: String
-obstacleColor = "#4DB6AC"
+obstacleColor = "#424242"
 
 gameAreaHeight :: Int
 gameAreaHeight = 800
