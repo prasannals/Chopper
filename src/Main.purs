@@ -18,6 +18,7 @@ import DOM.HTML.Event.ErrorEvent (lineNo)
 import DOM.HTML.History (back)
 import Data.Array (group)
 import Data.Array (length)
+import Data.Array.ST (thaw)
 import FRP as F
 import FRP.Behavior (behavior)
 import FRP.Behavior.Keyboard (key)
@@ -42,7 +43,7 @@ heliInitY = 50
 
 
 clickIncY :: Int
-clickIncY = -80
+clickIncY = -8
 
 clickIncX :: Int
 clickIncX = 0
@@ -54,9 +55,9 @@ fallIncX :: Int
 fallIncX = 0
 
 fallIncY :: Int
-fallIncY = 4
+fallIncY = 8
 
--- GREEN THEME
+-- -- GREEN THEME
 -- htmlBackground :: String
 -- htmlBackground = "#00796B"
 --
@@ -92,7 +93,7 @@ heliMargin :: Int
 heliMargin = 40
 
 type Obstacle = {rect :: Rect, id :: Int, background :: String}
-type MyState = {background :: String, heliRect :: Rect, obstacles :: Array Obstacle, numObstacles :: Int, logText :: String, gameLife :: Int, score :: Int}
+type MyState = {background :: String, heliRect :: Rect, obstacles :: Array Obstacle, numObstacles :: Int, logText :: String, gameLife :: Int, score :: Int, isPressed :: Boolean}
 
 
 
@@ -164,9 +165,7 @@ updateObstaclePos dx dy {rect : {x, y, w, h}, id, background }= {rect : {x: (x +
 
 heliJump = do
       (state::MyState) <- U.getState
-      if state.gameLife > 0
-        then U.updateState "heliRect" {x : state.heliRect.x + clickIncX, y : state.heliRect.y + clickIncY, w : state.heliRect.w, h : state.heliRect.h}
-        else pure state
+      U.updateState "isPressed" true
 
 eval x = heliJump
 
@@ -182,14 +181,21 @@ addObstacle maxLen arr = do
     else
       if ((length arr) < maxLen) then pure (arr <> [{rect : {x : (gameAreaWidth - 50), y : (gameAreaHeight - i), w: 50, h : i }, id : (length arr) , background : obstacleColor}]) else pure arr
 
+invSpeed :: Int
+invSpeed = 30
+
 getScreenSpeed :: Int -> Int
-getScreenSpeed score = min (-2) (-(score / 20))
+getScreenSpeed score = min (-2) (-(score / invSpeed))
 
 frameUpdate x = do
   (state::MyState) <- U.getState
   if state.gameLife > 0
     then do
-      _ <- U.updateState "heliRect" {x : (state.heliRect.x + fallIncX), y : (state.heliRect.y + fallIncY), w: state.heliRect.w, h: state.heliRect.h}
+      _ <- if (not state.isPressed)
+       then U.updateState "heliRect" {x : (state.heliRect.x + fallIncX), y : (state.heliRect.y + fallIncY), w: state.heliRect.w, h: state.heliRect.h}
+       else if state.gameLife > 0
+         then U.updateState "heliRect" {x : state.heliRect.x + clickIncX, y : state.heliRect.y + clickIncY, w : state.heliRect.w, h : state.heliRect.h}
+         else pure state
       newObs <- (addObstacle numObstaclesOnScreen state.obstacles)
       (u::MyState) <- U.updateState "obstacles" $ (updateObstaclePos (getScreenSpeed state.score) 0)  <$> newObs
       s <- U.updateState "score" (u.score + ((length (filter (\{rect : {x, y, w, h}, id, background } -> if (x < 0) then true else false ) u.obstacles)) * 10) )
@@ -204,7 +210,11 @@ withMargin :: Rect -> Int -> Rect
 withMargin {x,y,w,h} margin = {x : (x + margin),y : y + margin,w : w - margin, h:  h - margin}
 
 
-evalKeyBoard space = heliJump
+evalKeyboard space = heliJump
+
+evalKeyboardUp space = do
+  (s :: MyState) <- U.getState
+  U.updateState "isPressed" false
 
 listen = do
   sigSquare <- U.signal "gameArea" ""
@@ -212,9 +222,11 @@ listen = do
   let behavior = eval <$> sigSquare.behavior
   let events = sigSquare.event
   let frameBehv = frameUpdate <$> sigSquare.behavior
-  let kBehv = evalKeyBoard <$> (key 32)
+  let kBehv = evalKeyboard <$> (key 32)
+  let kBehvUp = evalKeyboardUp <$> (key 32)
 
   _ <- U.patch widget kBehv K.down
+  _ <- U.patch widget kBehvUp K.up
   _ <- U.patch widget behavior events
   U.patch widget frameBehv (animationFrame)
 
@@ -228,6 +240,7 @@ main = do
   _ <- U.updateState "gameLife" 1
   _ <- U.updateState "obstacles" getObstacles
   _ <- U.updateState "score" 0
+  _ <- U.updateState "isPressed" false
   _ <- U.updateState "heliRect" {x : heliInitX, y :heliInitY, w : heliWidth, h : heliHeight}
   state <- U.updateState "logText" ""
 
