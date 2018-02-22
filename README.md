@@ -4,6 +4,8 @@
 ## Dark Theme
 ![GamePlay](https://media.giphy.com/media/pcKOnyeZiMvguEzJjZ/giphy.gif)
 
+Link to play game : https://prasannals.github.io/Chopper/
+
 `yarn`
 
 `npm i`
