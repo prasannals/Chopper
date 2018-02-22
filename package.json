@@ -1,5 +1,9 @@
 {
+  "name": "Chopper",
+  "version": "1.0.0",
+  "description": "Chopper game to show the capabilities of PrestoDOM library",
   "scripts": {
+    "compile": "webpack --progress --colors --optimize-minimize",
     "start": "webpack-dev-server --content-base dist/ --host 0.0.0.0"
   },
   "dependencies": {
@@ -8,6 +12,12 @@
     "babel-loader": "^7.1.2",
     "presto-ui": "^0.3.3",
     "webpack": "^3.5.5",
-    "webpack-dev-server": "2.9.7"
-  }
+    "webpack-dev-server": "^2.9.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prasanna/Chopper.git"
+  },
+  "author": "Prasanna Lakkur Subramanyam",
+  "license": "MIT"
 }
