@@ -1,100 +1,36 @@
 module Main where
 
-import Collision
-import Data.Array
-import Data.String
-import Halogen.VDom.Types
-import Prelude
-import Types
-import UI.Elements
-import UI.Events
-import UI.Properties
+import Collision (Rect, anyOverlapping, showRect)
+import Data.Array (filter, foldl, length)
+import Halogen.VDom.Types (VDom)
+import Prelude (bind, discard, map, negate, not, pure, show, unit, ($), (*), (+), (-), (/), (<), (<$>), (<>), (==), (>), (>=), (||))
+import UI.Elements (frameLayout, imageView, textView)
+import UI.Events (onClick)
+import UI.Properties (background, gravity, height, id_, imageUrl, margin, text, textSize, width)
 
-import Control.Monad.Eff.Console (log)
-import Control.Monad.Eff.Exception (stack)
-import Control.Monad.Eff.Random (randomInt)
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Console (log, CONSOLE)
+import Control.Monad.Eff.Random (randomInt, RANDOM)
 import Control.Plus ((<|>))
-import DOM.HTML.Event.ErrorEvent (lineNo)
-import DOM.HTML.History (back)
-import Data.Array (group)
-import Data.Array (length)
-import Data.Array.ST (thaw)
-import FRP as F
-import FRP.Behavior (behavior)
+import Data.Unit (Unit)
+import DOM (DOM)
+import FRP (FRP)
 import FRP.Behavior.Keyboard (key)
-import FRP.Event as E
 import FRP.Event.Keyboard as K
 import FRP.Event.Time (animationFrame)
-import Halogen.VDom.Types (graft)
 import Neon (min)
 import Neon.Operator ((%))
-import UI.Core (MEvent, AttrValue(..), Attr(..), Prop)
+import UI.Core (Attr, AttrValue(Some), MEvent)
+
 import UI.Util as U
+import GameConfig
 
 foreign import click :: MEvent
 foreign import change :: MEvent
 
 
-heliInitX :: Int
-heliInitX = 50
-
-heliInitY :: Int
-heliInitY = 50
-
-
-clickIncY :: Int
-clickIncY = -8
-
-clickIncX :: Int
-clickIncX = 0
-
-numObstaclesOnScreen :: Int
-numObstaclesOnScreen = 4
-
-fallIncX :: Int
-fallIncX = 0
-
-fallIncY :: Int
-fallIncY = 8
-
--- -- GREEN THEME
--- htmlBackground :: String
--- htmlBackground = "#00796B"
---
--- gameAreaBackground :: String
--- gameAreaBackground = "#B2DFDB"
---
--- obstacleColor :: String
--- obstacleColor = "#009688"
-
--- BROWN THEME
-htmlBackground :: String
-htmlBackground = "#9E9E9E"
-
-gameAreaBackground :: String
-gameAreaBackground = "#ECEFF1"
-
-obstacleColor :: String
-obstacleColor = "#424242"
-
-gameAreaHeight :: Int
-gameAreaHeight = 800
-
-gameAreaWidth :: Int
-gameAreaWidth = 1200
-
-heliWidth :: Int
-heliWidth = 150
-
-heliHeight :: Int
-heliHeight = 100
-
-heliMargin :: Int
-heliMargin = 40
-
 type Obstacle = {rect :: Rect, id :: Int, background :: String}
 type MyState = {background :: String, heliRect :: Rect, obstacles :: Array Obstacle, numObstacles :: Int, logText :: String, gameLife :: Int, score :: Int, isPressed :: Boolean}
-
 
 
 widget :: forall a . MyState  -> VDom Attr a
@@ -163,16 +99,72 @@ getObstacles = [{rect : {x : 200, y : 0, w: 50, h :50}, id : 0, background : obs
 updateObstaclePos :: Int -> Int -> Obstacle -> Obstacle
 updateObstaclePos dx dy {rect : {x, y, w, h}, id, background }= {rect : {x: (x + dx), y : (y + dy), w, h}, id, background }
 
+withMargin :: Rect -> Int -> Rect
+withMargin {x,y,w,h} margin = {x : (x + margin),y : y + margin,w : w - margin, h:  h - margin}
+
+getScreenSpeed :: Int -> Int
+getScreenSpeed score = min (-2) (-(score / invSpeed))
+
+
+heliJump :: forall t33 t34. Eff t33 { | t34 }
 heliJump = do
       (state::MyState) <- U.getState
       U.updateState "isPressed" true
 
+eval :: forall t63 t64 t65. t63 -> Eff t65 { | t64 }
 eval x = heliJump
 
-
+checkObstacleBounds :: forall t115 t118 t120 t121 t122 t123 t124.
+  Array
+    { background :: t124
+    , id :: t123
+    , rect :: { h :: t122
+              , w :: t121
+              , y :: t120
+              , x :: Int
+              | t118
+              }
+    | t115
+    }
+  -> Array
+       { background :: t124
+       , id :: t123
+       , rect :: { h :: t122
+                 , w :: t121
+                 , y :: t120
+                 , x :: Int
+                 | t118
+                 }
+       | t115
+       }
 checkObstacleBounds = filter (\{rect : {x, y, w, h}, id, background } -> if (x >= 0) then true else false )
 
 
+addObstacle :: forall t128.
+  Int
+  -> Array
+       { rect :: { x :: Int
+                 , y :: Int
+                 , w :: Int
+                 , h :: Int
+                 }
+       , id :: Int
+       , background :: String
+       }
+     -> Eff
+          ( random :: RANDOM
+          | t128
+          )
+          (Array
+             { rect :: { x :: Int
+                       , y :: Int
+                       , w :: Int
+                       , h :: Int
+                       }
+             , id :: Int
+             , background :: String
+             }
+          )
 addObstacle maxLen arr = do
   i <- randomInt 1 (gameAreaHeight/2)
   if (i % 2) == 0
@@ -181,12 +173,36 @@ addObstacle maxLen arr = do
     else
       if ((length arr) < maxLen) then pure (arr <> [{rect : {x : (gameAreaWidth - 50), y : (gameAreaHeight - i), w: 50, h : i }, id : (length arr) , background : obstacleColor}]) else pure arr
 
-invSpeed :: Int
-invSpeed = 30
 
-getScreenSpeed :: Int -> Int
-getScreenSpeed score = min (-2) (-(score / invSpeed))
 
+frameUpdate :: forall t149 t320.
+  t149
+  -> Eff
+       ( random :: RANDOM
+       , console :: CONSOLE
+       | t320
+       )
+       { background :: String
+       , heliRect :: { x :: Int
+                     , y :: Int
+                     , w :: Int
+                     , h :: Int
+                     }
+       , obstacles :: Array
+                        { rect :: { x :: Int
+                                  , y :: Int
+                                  , w :: Int
+                                  , h :: Int
+                                  }
+                        , id :: Int
+                        , background :: String
+                        }
+       , numObstacles :: Int
+       , logText :: String
+       , gameLife :: Int
+       , score :: Int
+       , isPressed :: Boolean
+       }
 frameUpdate x = do
   (state::MyState) <- U.getState
   if state.gameLife > 0
@@ -206,16 +222,31 @@ frameUpdate x = do
         else pure u
     else pure state
 
-withMargin :: Rect -> Int -> Rect
-withMargin {x,y,w,h} margin = {x : (x + margin),y : y + margin,w : w - margin, h:  h - margin}
 
-
+evalKeyboard :: forall t58 t59 t60. t58 -> Eff t60 { | t59 }
 evalKeyboard space = heliJump
 
+evalKeyboardUp :: forall t47 t52 t53. t47 -> Eff t52 { | t53 }
 evalKeyboardUp space = do
   (s :: MyState) <- U.getState
   U.updateState "isPressed" false
 
+
+listen :: forall t384.
+  Eff
+    ( frp :: FRP
+    , console :: CONSOLE
+    , random :: RANDOM
+    | t384
+    )
+    (Eff
+       ( frp :: FRP
+       , console :: CONSOLE
+       , random :: RANDOM
+       | t384
+       )
+       Unit
+    )
 listen = do
   sigSquare <- U.signal "gameArea" ""
 
@@ -231,6 +262,15 @@ listen = do
   U.patch widget frameBehv (animationFrame)
 
 
+main :: forall t453.
+  Eff
+    ( dom :: DOM
+    , console :: CONSOLE
+    , frp :: FRP
+    , random :: RANDOM
+    | t453
+    )
+    Unit
 main = do
   --- Init State {} empty record--
   U.initializeState
