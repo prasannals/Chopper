@@ -33,15 +33,26 @@ fallIncY = 8
 -- obstacleColor :: String
 -- obstacleColor = "#009688"
 
--- BROWN THEME
+-- BLACK BLUE THEME
 htmlBackground :: String
-htmlBackground = "#9E9E9E"
+htmlBackground = "#424242"
 
 gameAreaBackground :: String
-gameAreaBackground = "#ECEFF1"
+gameAreaBackground = "#3F51B5"
 
 obstacleColor :: String
-obstacleColor = "#424242"
+obstacleColor = "#C5CAE9"
+
+
+-- -- BROWN THEME
+-- htmlBackground :: String
+-- htmlBackground = "#9E9E9E"
+--
+-- gameAreaBackground :: String
+-- gameAreaBackground = "#ECEFF1"
+--
+-- obstacleColor :: String
+-- obstacleColor = "#424242"
 
 gameAreaHeight :: Int
 gameAreaHeight = 800
