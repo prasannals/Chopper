@@ -20,9 +20,12 @@ import Data.Array (group)
 import Data.Array (length)
 import FRP as F
 import FRP.Behavior (behavior)
+import FRP.Behavior.Keyboard (key)
 import FRP.Event as E
+import FRP.Event.Keyboard as K
 import FRP.Event.Time (animationFrame)
 import Halogen.VDom.Types (graft)
+import Neon (min)
 import Neon.Operator ((%))
 import UI.Core (MEvent, AttrValue(..), Attr(..), Prop)
 import UI.Util as U
@@ -39,7 +42,7 @@ heliInitY = 50
 
 
 clickIncY :: Int
-clickIncY = -50
+clickIncY = -80
 
 clickIncX :: Int
 clickIncX = 0
@@ -150,21 +153,22 @@ drawObstacle obstacle = frameLayout [
 
 
 getObstacles :: Array Obstacle
-getObstacles = [{rect : {x : 400, y : 0, w: 50, h :300}, id : 0, background : obstacleColor},
-                {rect : {x : 550, y : 0, w : 50, h : 400}, id : 1, background : obstacleColor},
-                {rect : {x : 680, y : 0, w : 50, h : 200 }, id : 2, background : obstacleColor},
-                {rect : {x : 900, y : 0, w : 50, h : 400 }, id : 3, background : obstacleColor}]
+getObstacles = [{rect : {x : 200, y : 0, w: 50, h :50}, id : 0, background : obstacleColor},
+                {rect : {x : 500, y : 0, w : 50, h : 300}, id : 1, background : obstacleColor},
+                {rect : {x : 800, y : 0, w : 50, h : 200 }, id : 2, background : obstacleColor},
+                {rect : {x : 1100, y : 0, w : 50, h : 400 }, id : 3, background : obstacleColor}]
 
 
 updateObstaclePos :: Int -> Int -> Obstacle -> Obstacle
 updateObstaclePos dx dy {rect : {x, y, w, h}, id, background }= {rect : {x: (x + dx), y : (y + dy), w, h}, id, background }
 
-
-eval x = do
+heliJump = do
       (state::MyState) <- U.getState
       if state.gameLife > 0
         then U.updateState "heliRect" {x : state.heliRect.x + clickIncX, y : state.heliRect.y + clickIncY, w : state.heliRect.w, h : state.heliRect.h}
         else pure state
+
+eval x = heliJump
 
 
 checkObstacleBounds = filter (\{rect : {x, y, w, h}, id, background } -> if (x >= 0) then true else false )
@@ -178,6 +182,8 @@ addObstacle maxLen arr = do
     else
       if ((length arr) < maxLen) then pure (arr <> [{rect : {x : (gameAreaWidth - 50), y : (gameAreaHeight - i), w: 50, h : i }, id : (length arr) , background : obstacleColor}]) else pure arr
 
+getScreenSpeed :: Int -> Int
+getScreenSpeed score = min (-2) (-(score / 20))
 
 frameUpdate x = do
   (state::MyState) <- U.getState
@@ -185,17 +191,20 @@ frameUpdate x = do
     then do
       _ <- U.updateState "heliRect" {x : (state.heliRect.x + fallIncX), y : (state.heliRect.y + fallIncY), w: state.heliRect.w, h: state.heliRect.h}
       newObs <- (addObstacle numObstaclesOnScreen state.obstacles)
-      _ <- U.updateState "score" (state.score + ((length (filter (\{rect : {x, y, w, h}, id, background } -> if (x <= 0) then true else false ) state.obstacles)) * 10) )
-      (u::MyState) <- U.updateState "obstacles" $ checkObstacleBounds $ (updateObstaclePos (-2) 0)  <$> newObs
-      log $ foldl (\a s -> a <> "\n" <> s) "" ([showRect state.heliRect] <> (map showRect (map (\o -> o.rect) state.obstacles)))
+      (u::MyState) <- U.updateState "obstacles" $ (updateObstaclePos (getScreenSpeed state.score) 0)  <$> newObs
+      s <- U.updateState "score" (u.score + ((length (filter (\{rect : {x, y, w, h}, id, background } -> if (x < 0) then true else false ) u.obstacles)) * 10) )
+      _ <- U.updateState "obstacles" $ checkObstacleBounds $ s.obstacles
+      log $ foldl (\a s -> a <> "\n" <> s) "" ([showRect u.heliRect] <> (map showRect (map (\o -> o.rect) u.obstacles)))
       if (anyOverlapping (withMargin (state.heliRect) heliMargin ) (map (\o -> o.rect) state.obstacles)) || (u.heliRect.y > (gameAreaHeight - u.heliRect.h)) || (u.heliRect.y < 0)
         then U.updateState "gameLife" (state.gameLife - 1)
-        else pure state
+        else pure u
     else pure state
 
 withMargin :: Rect -> Int -> Rect
 withMargin {x,y,w,h} margin = {x : (x + margin),y : y + margin,w : w - margin, h:  h - margin}
 
+
+evalKeyBoard space = heliJump
 
 listen = do
   sigSquare <- U.signal "gameArea" ""
@@ -203,7 +212,9 @@ listen = do
   let behavior = eval <$> sigSquare.behavior
   let events = sigSquare.event
   let frameBehv = frameUpdate <$> sigSquare.behavior
+  let kBehv = evalKeyBoard <$> (key 32)
 
+  _ <- U.patch widget kBehv K.down
   _ <- U.patch widget behavior events
   U.patch widget frameBehv (animationFrame)
 
