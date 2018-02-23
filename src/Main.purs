@@ -1,29 +1,28 @@
 module Main where
 
-import Collision (Rect, anyOverlapping, showRect)
-import Data.Array (filter, foldl, length)
-import Halogen.VDom.Types (VDom)
-import Prelude (bind, discard, map, negate, not, pure, show, unit, ($), (*), (+), (-), (/), (<), (<$>), (<>), (==), (>), (>=), (||))
-import UI.Elements (frameLayout, imageView, textView)
-import UI.Events (onClick)
-import UI.Properties (background, gravity, height, id_, imageUrl, margin, text, textSize, width)
+import GameConfig
 
+import Collision (Rect, anyOverlapping, showRect)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (log, CONSOLE)
 import Control.Monad.Eff.Random (randomInt, RANDOM)
 import Control.Plus ((<|>))
-import Data.Unit (Unit)
 import DOM (DOM)
+import Data.Array (filter, foldl, length)
+import Data.Unit (Unit)
 import FRP (FRP)
 import FRP.Behavior.Keyboard (key)
 import FRP.Event.Keyboard as K
 import FRP.Event.Time (animationFrame)
+import Halogen.VDom.Types (VDom)
 import Neon (min)
 import Neon.Operator ((%))
+import Prelude (bind, discard, map, negate, not, pure, show, unit, ($), (*), (+), (-), (/), (<), (<$>), (<>), (==), (>), (>=), (||))
 import UI.Core (Attr, AttrValue(Some), MEvent)
-
+import UI.Elements (frameLayout, imageView, textView)
+import UI.Events (onClick)
+import UI.Properties (background, gravity, height, id_, imageUrl, margin, text, textSize, width)
 import UI.Util as U
-import GameConfig
 
 foreign import click :: MEvent
 foreign import change :: MEvent
@@ -223,14 +222,14 @@ frameUpdate x = do
     else pure state
 
 
-evalKeyboard :: forall t58 t59 t60. t58 -> Eff t60 { | t59 }
-evalKeyboard space = heliJump
+evalKeyboard :: forall t58 t59 t60. Boolean -> Eff t60 { | t59 }
+evalKeyboard space = if space then heliJump else U.getState
 
-evalKeyboardUp :: forall t47 t52 t53. t47 -> Eff t52 { | t53 }
-evalKeyboardUp space = do
-  (s :: MyState) <- U.getState
-  U.updateState "isPressed" false
-
+evalKeyboardUp :: forall t47 t52 t53. Boolean -> Eff t52 { | t53 }
+evalKeyboardUp space = if (not space) then do
+    (s :: MyState) <- U.getState
+    U.updateState "isPressed" false
+  else U.getState
 
 listen :: forall t384.
   Eff
